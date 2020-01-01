@@ -19,7 +19,11 @@ int main()
 		while (room.isRoundEnd() == -1)	
 		{
 			room.draw();		//抽牌
-			if (DEBUG)	cout << "翻開了卡片!!  卡片類型: " << room.drawedCards.back().getCardType() << "  分數/種類: " << room.drawedCards.back().score << endl;
+			if (DEBUG && room.drawedCards.back().cardType == CardType::Monster)	
+				cout << "翻開了卡片!!  卡片類型: " << room.drawedCards.back().getCardType() << "  種類: " << room.drawedCards.back().score << endl;
+			else if (DEBUG && (room.drawedCards.back().cardType == CardType::Treasure || room.drawedCards.back().cardType == CardType::Treasure))
+				cout << "翻開了卡片!!  卡片類型: " << room.drawedCards.back().getCardType() << "  分數: " << room.drawedCards.back().score << endl;
+
 			//判斷是否結束, 結束的話就進行相對處裡
 			if (room.isRoundEnd() != -1) { break; }
 			// 取得每位冒險玩家的操作
@@ -32,7 +36,7 @@ int main()
 				} while (!(ret == 1 || ret == 0));	//錯誤處理
 				if (((*it).state = ret) == false) {	//將冒險玩家移動到當前回家玩家(孬種)
 					room.currentBackPlayer.insert(room.currentBackPlayer.end(), *it);
-					it =room.currentAdvanturePlayer.erase(it);
+					it = room.currentAdvanturePlayer.erase(it);
 				}
 				else {
 					it++;
@@ -43,15 +47,12 @@ int main()
 			if (room.getBackNumber() == 1) {
 				if (room.currentBackPlayer.back().state == true)	//錯誤判斷
 					throw "Error: 該回家的玩家沒回家, 看來他流連忘返";
-				room.doAllocationScore();	//分配分數給回家的玩家並更新場上分數
-				//Debugmsg(room.currentBackPlayer.begin()->index, room.currentScore, room.currentBackPlayer.begin()->score); //TODO 神器
-				//room.doUpdataScore();
+				room.doAllocationScore();									//分配分數給回家的玩家並更新場上分數
 				room.doMoveBackToReturn();								//將回家的玩家移到已回家
 			}
 			//多人回家 - 神器卡留在通道上, 平分寶石
 			else if (room.getBackNumber() > 1) {
-				room.doAllocationScore();	//分配分數給回家的玩家並更新場上分數
-				//room.doUpdataScore();
+				room.doAllocationScore();									//分配分數給回家的玩家並更新場上分數
 				room.doMoveBackToReturn();								//將回家的玩家移到已回家
 			}
 			//沒人回家 - 交給while處理
@@ -61,6 +62,7 @@ int main()
 		}
 		room.currentRound++;
 	}
+	room.finalResults();
 	system("pause");
 	return 0;
 }
@@ -74,11 +76,11 @@ void Debugmsg(int p, int score, int pcur) {
  */
 void Debugmsg(int p, int score, int pcur, int ascore) {
 	if (!DEBUG) return;
-	cout << "玩家: " << p
+	cout << "玩家 #" << p
 		<< "	 獲得寶石分數: " << score
-		<< "	 目前分數: " << pcur;
+		<< "	 目前總獲得分數: " << pcur;
 	if (ascore)
-		cout << "  獲得神器卡分數:" << ascore;
+		cout << "  獲得神器卡 分數: " << ascore;
 	cout << endl;
 }
 
