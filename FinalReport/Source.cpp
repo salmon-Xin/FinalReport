@@ -9,19 +9,19 @@ int main()
 		cout << "遊玩人數(限制為3~8人): ";
 		cin >> ret;
 	}
-	Room room(ret, DEFAULT_ROUND);		//建立房間 並初始化 房間人數 最大回合數 分數
+	Room room(ret);		//建立房間 並初始化 房間人數 最大回合數 分數
 	//判斷是否最大回合
 	while (!room.isGameEnd())
 	{
-		cout << "------Round" << room.currentRound << "------\n"; //round 2出錯
-		room.doRestart();							//重置玩家狀態(探險), 當前回合分數為0  <------- error
+		cout << " 回合 #" << room.currentRound << " 開始!\n"; //round 2出錯
+		room.doRestart();							//重置玩家狀態(探險), 回合分數為0
 		//判斷回合是否結束, -1為遊戲繼續
 		while (room.isRoundEnd() == -1)	
 		{
-			//抽牌, 並把抽到的牌放入到 drawedCards, 然後判斷是否出現任何相同的怪物
-			room.draw();
-			if (DEBUG)
-				cout << "翻開了卡片!!  卡片類型: " << room.drawedCards.back().getCardType() << "  分數/種類: " << room.drawedCards.back().score << endl;
+			room.draw();		//抽牌
+			if (DEBUG)	cout << "翻開了卡片!!  卡片類型: " << room.drawedCards.back().getCardType() << "  分數/種類: " << room.drawedCards.back().score << endl;
+			//判斷是否結束, 結束的話就進行相對處裡
+			if (room.isRoundEnd() != -1) { break; }
 			// 取得每位冒險玩家的操作
 			for (auto it = room.currentAdvanturePlayer.begin(); it != room.currentAdvanturePlayer.end();)
 			{
@@ -38,33 +38,21 @@ int main()
 					it++;
 				}
 			}
-			if (DEBUG)
-				cout << "此次回家人數: " << room.getBackNumber() << "   繼續冒險人數: " << room.getAdventureNumber() << " \n";
-			//判斷是否結束, 結束的話就進行相對處裡
-			if (room.isRoundEnd() != -1) {
-				break;
-			}
+			if (DEBUG) cout << "此次回家人數: " << room.getBackNumber() << "     繼續冒險人數: " << room.getAdventureNumber() << " \n";
 			// 一人回家 - 獲得神器卡, 並獨得通道上寶石
 			if (room.getBackNumber() == 1) {
 				if (room.currentBackPlayer.back().state == true)	//錯誤判斷
 					throw "Error: 該回家的玩家沒回家, 看來他流連忘返";
-				(*room.currentBackPlayer.begin()).addScore(room.currentScore);
-				Debugmsg(room.currentBackPlayer.begin()->index, room.currentScore, room.currentBackPlayer.begin()->score); //TODO 神器
-				room.currentScore = 0;
+				room.doAllocationScore();	//分配分數給回家的玩家並更新場上分數
+				//Debugmsg(room.currentBackPlayer.begin()->index, room.currentScore, room.currentBackPlayer.begin()->score); //TODO 神器
+				//room.doUpdataScore();
 				room.doMoveBackToReturn();								//將回家的玩家移到已回家
-				continue;
 			}
 			//多人回家 - 神器卡留在通道上, 平分寶石
 			else if (room.getBackNumber() > 1) {
-				int returnCount = room.getBackNumber();			//為了效率多一個變數儲存 返回人數
-				int	 score = room.currentScore / returnCount;		//回家玩家獲得分數
-				room.currentScore %= returnCount;						//場上剩餘寶石分數
-				for (int i = 0; i < room.getBackNumber(); i++) {					//給予回家玩家分數
-					room.currentBackPlayer.at(i).addScore(score);
-					Debugmsg(room.currentBackPlayer.at(i).index, score, room.currentBackPlayer.at(i).score);
-				}
+				room.doAllocationScore();	//分配分數給回家的玩家並更新場上分數
+				//room.doUpdataScore();
 				room.doMoveBackToReturn();								//將回家的玩家移到已回家
-				cout << "場上餘剩寶石分數: " << room.currentScore << endl;
 			}
 			//沒人回家 - 交給while處理
 			else {
@@ -78,6 +66,7 @@ int main()
 }
 
 void Debugmsg(int p, int score, int pcur) {
+	if (!DEBUG) return;
 	Debugmsg(p, score, pcur, 0);
 }
 /*
