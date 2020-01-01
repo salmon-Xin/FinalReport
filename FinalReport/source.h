@@ -15,7 +15,6 @@
 //函式宣告
 void Debugmsg(int p, int score, int pcur);
 void Debugmsg(int p, int score, int pcur, int ascore);
-void DebugFinalmsg();
 
 /*
  *卡片類型
@@ -139,7 +138,7 @@ struct Room
 		initArtifactCards();							//初始化神器卡
 		shuffle(cards.begin(), cards.end());	//牌堆洗牌
 		initMonsterCount();							//初始化怪物計數
-		init();												//初始化其餘設定
+		//init();												//初始化其餘設定
 	}
 	/*
 	 * 初始化 房間人數, 回合分數, 回家人數
@@ -205,8 +204,9 @@ struct Room
 	 * 新回合開始用 加入新的隨機神器卡
 	 */
 	void doRestart() {
+		currentAdvanturePlayer.insert(currentAdvanturePlayer.end(), returnedPlayer.begin(), returnedPlayer.end());
+		std::sort(currentAdvanturePlayer.begin(), currentAdvanturePlayer.end() - 1, compareByIndex);
 		returnedPlayer.clear();
-		currentAdvanturePlayer = player;
 		for (auto i = player.begin(); i != player.end(); i++) { (*i).restart(); };
 		//加入一張神器卡
 		if (artifactcards.size()) { cards.insert(cards.end(), artifactcards.begin(), artifactcards.begin() + 1); }
@@ -220,16 +220,18 @@ struct Room
 		int bNumber = getBackNumber();
 		if (bNumber == 1) {	//神器
 			currentBackPlayer.back().addScore(currentArtifactScore);
+			currentArtifactScore = 0;
 		}
 		for (int i = 0, score = currentScore / bNumber; i < bNumber; i++) {
 			currentBackPlayer.at(i).addScore(score);
-			if(currentArtifactScore > 0 && bNumber == 1)
+			if (currentArtifactScore > 0 && bNumber == 1) {
 				Debugmsg(currentBackPlayer.at(i).index, score, currentBackPlayer.at(i).score, currentArtifactScore);
+			}
 			else
 				Debugmsg(currentBackPlayer.at(i).index, score, currentBackPlayer.at(i).score);
 		}
 		doUpdataScore();
-		if(!DEBUG)	std::cout << "場上餘剩寶石分數: " << currentScore << std::endl;
+		if (DEBUG)	std::cout << "場上餘剩寶石分數: " << currentScore << std::endl;
 	}
 	/*
 	 * 將要回家的玩家移到已回家
@@ -258,7 +260,7 @@ struct Room
 			initMonsterCount();											//清除怪物暫存
 			break;
 		case E2:		//牌堆沒卡牌了 強制結束這回合	error 不可能出現
-			exit(-1); 
+			exit(-1);
 			break;
 		case E3:		//出現相同的怪物2張
 			drawedCards.erase(drawedCards.end() - 1);		//移除最後重複的怪物卡
@@ -272,7 +274,7 @@ struct Room
 		}
 	}
 	/*
-	 * 移除已抽出的牌堆中的神器卡	
+	 * 移除已抽出的牌堆中的神器卡
 	 */
 	void doRemoveArtifact() {
 		for (auto it = drawedCards.begin(); it != drawedCards.end(); it++) {
@@ -338,7 +340,7 @@ struct Room
 	 * 回合數已滿返回 true, 其餘 false
 	 */
 	bool isGameEnd() {
-		return currentRound == DEFAULT_ROUND+1;
+		return currentRound == DEFAULT_ROUND + 1;
 	}
 	/*
 	 *	返回總遊戲人數
@@ -360,7 +362,7 @@ struct Room
 	}
 	/*
 	 * 返回當前已回家人數
-     */
+	 */
 	int getReturnedNumber() const {
 		return (int)returnedPlayer.size();
 	}
@@ -376,7 +378,7 @@ struct Room
 	Card draw()
 	{
 		auto c = cards.begin();										//牌堆第一張牌
-		drawedCards.insert(drawedCards.end(), c, c+1);
+		drawedCards.insert(drawedCards.end(), c, c + 1);
 		cards.erase(c);													//牌堆第一張牌刪除
 		auto dc = drawedCards.back();							//取得抽出的牌
 		switch (dc.cardType)											//判定卡牌類型
@@ -385,7 +387,7 @@ struct Room
 			currentScore += dc.score;								//寶石數增加
 			break;
 		case Artifact:
-			//currentScore += dc.score;								//寶石數增加
+			currentArtifactScore += dc.score;
 			break;
 		case Monster:
 			currentMonsters[(MonsterType)dc.score]++;		//怪物種類數增加
@@ -405,12 +407,21 @@ struct Room
 		std::random_shuffle(begin, end); //打亂元素
 	}
 	/*
+	 * 比較兩個玩家的代號
+	 * @param a 要比較的玩家
+	 * @param b 要比較的玩家
+	 * @return 返回 a 玩家代號是否低於 b 玩家
+	 */
+	static bool compareByIndex(Player &a, Player &b) {
+		return (a.index < b.index);
+	}
+	/*
 	 *	比較兩個玩家的分數
 	 * @param a 要比較的玩家
 	 * @param b 要比較的玩家
 	 * @return 返回 a 玩家分數是否高於 b 玩家
 	 */
-	static bool compareScore(Player &a, Player &b) {
+	static bool compareByScore(Player &a, Player &b) {
 		return (a.score > b.score);
 	}
 	/*
@@ -418,9 +429,9 @@ struct Room
 	 */
 	void finalResults() {
 		if (!DEBUG)	return;
-		std::sort(player.begin(), player.end()-1, compareScore);
-		for (int i = 0; i < getPlayerNumber(); i++) {
-			std::cout << "第" << i + 1 << "名   玩家#" << player.at(i).index << " 最後得分: " << player.at(i).score << std::endl;
+		std::sort(currentAdvanturePlayer.begin(), currentAdvanturePlayer.end(), compareByScore);
+		for (int i = 0; i < getAdventureNumber(); i++) {
+			std::cout << "第" << i + 1 << "名   玩家#" << currentAdvanturePlayer.at(i).index << "  最後得分: " << currentAdvanturePlayer.at(i).score << std::endl;
 		}
 	}
 };
