@@ -1,1 +1,1 @@
-[更新日誌](./README.md) 
+[更新日誌](./CHANGELOG.md) 
