@@ -31,6 +31,8 @@ enum MonsterType : int {
 	M1,
 	M2,
 	M3,
+	M4,
+	M5,
 };
 /*
  * 神器類型
@@ -155,7 +157,7 @@ struct Room
 	 * 重置怪物卡並放入牌堆 怪物卡x3
 	 */
 	void initMonsterCards() {
-		for (int i = 0; i < 3; i++)
+		for (int i = 0; i < 5; i++)
 			for (int j = 0; j < 3; j++)
 				cards.emplace_back(CardType::Monster, (int)i);
 	}
@@ -176,6 +178,8 @@ struct Room
 		currentMonsters[MonsterType::M1] = 0;
 		currentMonsters[MonsterType::M2] = 0;
 		currentMonsters[MonsterType::M3] = 0;
+		currentMonsters[MonsterType::M4] = 0;
+		currentMonsters[MonsterType::M5] = 0;
 	}
 	/*
 	 * 初始化玩家資料 (網路用)
@@ -319,6 +323,14 @@ struct Room
 		}
 		if (currentMonsters[MonsterType::M3] >= 2) {
 			if (DEBUG) std::cout << "怪物卡出現了兩次!!   種類: " << M3 << std::endl;
+			return M3;
+		}
+		if (currentMonsters[MonsterType::M4] >= 2) {
+			if (DEBUG) std::cout << "怪物卡出現了兩次!!   種類: " << M4 << std::endl;
+			return M3;
+		}
+		if (currentMonsters[MonsterType::M5] >= 2) {
+			if (DEBUG) std::cout << "怪物卡出現了兩次!!   種類: " << M5 << std::endl;
 			return M3;
 		}
 		return -1;
