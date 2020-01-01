@@ -14,14 +14,13 @@ int main()
 	while (!room.isGameEnd())
 	{
 		cout << " 回合 #" << room.currentRound << " 開始!\n"; //round 2出錯
-		room.doRestart();							//重置玩家狀態(探險), 回合分數為0
 		//判斷回合是否結束, -1為遊戲繼續
-		while (room.isRoundEnd() == -1)	
+		while (room.isRoundEnd() == -1)
 		{
 			room.draw();		//抽牌
-			if (DEBUG && room.drawedCards.back().cardType == CardType::Monster)	
+			if (DEBUG && room.drawedCards.back().cardType == CardType::Monster)
 				cout << "翻開了卡片!!  卡片類型: " << room.drawedCards.back().getCardType() << "  種類: " << room.drawedCards.back().score << endl;
-			else if (DEBUG && (room.drawedCards.back().cardType == CardType::Treasure || room.drawedCards.back().cardType == CardType::Treasure))
+			else if (DEBUG)
 				cout << "翻開了卡片!!  卡片類型: " << room.drawedCards.back().getCardType() << "  分數: " << room.drawedCards.back().score << endl;
 
 			//判斷是否結束, 結束的話就進行相對處裡
@@ -60,13 +59,16 @@ int main()
 				continue;
 			}
 		}
+		room.doRestart();							//重置玩家狀態(探險), 回合分數為0
 		room.currentRound++;
 	}
 	room.finalResults();
 	system("pause");
 	return 0;
 }
-
+/*
+ * 除錯訊息
+ */
 void Debugmsg(int p, int score, int pcur) {
 	if (!DEBUG) return;
 	Debugmsg(p, score, pcur, 0);
@@ -78,7 +80,7 @@ void Debugmsg(int p, int score, int pcur, int ascore) {
 	if (!DEBUG) return;
 	cout << "玩家 #" << p
 		<< "	 獲得寶石分數: " << score
-		<< "	 目前總獲得分數: " << pcur;
+		<< "  目前總獲得分數: " << pcur;
 	if (ascore)
 		cout << "  獲得神器卡 分數: " << ascore;
 	cout << endl;
