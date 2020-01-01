@@ -12,6 +12,7 @@
 #define ARTIFACT	{ 5,7,8,10,12 }										///所有神器的分數
 #define TREASURE	{ 1,2,3,4,5,5,7,7,9,11,11,13,14,15,17 }		///所有寶石的分數
 
+//函式宣告
 void Debugmsg(int p, int score, int pcur);
 void Debugmsg(int p, int score, int pcur, int ascore);
 
@@ -105,8 +106,9 @@ struct Room
 {
 	int playerNumber = DEFAULT_PLAYER_NUMBER;	//房間人數
 	int currentRound = 1;											//當前回合
-	int maxRound = DEFAULT_ROUND;						//最大回合數
+	//int maxRound = DEFAULT_ROUND;						//最大回合數
 	int currentScore = 0;											//當前回合分數(寶石)
+	int currentArtifactScore = 0;											//當前回合分數(神器)
 	std::vector<Card> cards;									//牌堆
 	std::vector<Card> artifactcards;							//當前神器牌堆
 	std::vector<Card> drawedCards;							//當前回合抽出的牌
@@ -120,14 +122,14 @@ struct Room
 	 * @param pNumber	  玩家人數    預設3人
 	 * @param sRoundMax 最大回合數 預設5回合
 	 */
-	Room(int pNumber = DEFAULT_PLAYER_NUMBER, int sRoundMax = DEFAULT_ROUND) {
-		maxRound = sRoundMax;				//設定最大回合數
+	Room(int pNumber = DEFAULT_PLAYER_NUMBER) {
 		playerNumber = pNumber;				//設定玩家人數
 		initPlayer();									//初始化玩家資料 網路用
 		initAdvanturePlayer();						//初始化冒險玩家
 		initTreasureCards();						//初始化牌堆的寶藏
 		initMonsterCards();							//初始化牌堆的怪物卡
-		shuffle();	//洗牌
+		initArtifactCards();							//初始化神器卡
+		shuffle(cards.begin(), cards.end());	//牌堆洗牌
 		initMonsterCount();							//初始化怪物計數
 		init();												//初始化其餘設定
 	}
@@ -136,6 +138,7 @@ struct Room
 	 */
 	void init() {
 		currentScore = 0;
+		currentArtifactScore = 0;
 		/*		放入神器卡	*/
 	}
 	/*
@@ -157,17 +160,17 @@ struct Room
 				cards.emplace_back(CardType::Monster, (int)i);
 	}
 	/*
-	 * 重置寶石卡並放入牌堆
+	 * 初始化神器卡並放入神器卡牌堆暫存
 	 */
 	void initArtifactCards() {
-		/*		放入神器卡	*/
 		int a[5] = ARTIFACT;
 		for (auto i = 0; i < sizeof(a) / sizeof(int); i++) {
 			artifactcards.emplace_back(CardType::Artifact, a[i]);
 		}
+		shuffle(artifactcards.begin(), artifactcards.end());	//神器卡牌堆洗牌
 	}
 	/*
-	 * 初始化怪物計數
+	 * 初始化怪物計數 (每Round執行)
 	 */
 	void initMonsterCount() {
 		currentMonsters[MonsterType::M1] = 0;
@@ -189,15 +192,38 @@ struct Room
 		currentAdvanturePlayer = player;
 	}
 	/*
-	 * 重置回合用
+	 * 新回合開始用
 	 */
 	void doRestart() {
+		/*
 		if (getReturnedNumber() >= 1) {	// 已經回家的玩家 移動到 當前回合探險的玩家 並重置玩家狀態
 			currentAdvanturePlayer.insert(currentAdvanturePlayer.end(), returnedPlayer.begin(), returnedPlayer.end());
 			returnedPlayer.clear();
 			for (int i = 0; i < playerNumber; i++)
 				player[i].restart();
+		}*/
+		returnedPlayer.clear();
+		currentAdvanturePlayer = player;
+		for (auto i = player.begin(); i != player.end(); i++) { (*i).restart(); };
+		//加入一張神器卡
+		if (artifactcards.size()) { cards.insert(cards.end(), artifactcards.begin(), artifactcards.begin() + 1); }
+		shuffle(cards.begin(), cards.end());
+	}
+	/*
+	 * 分配分數給回家的玩家
+	 */
+	void doAllocationScore() {
+		int bNumber = getBackNumber();
+		if (bNumber) {	//神器
+			currentBackPlayer.back().addScore(currentArtifactScore);
+			if (DEBUG) std::cout << "#" << currentBackPlayer.back().index << " 獲得神器卡 分數: " << currentArtifactScore << std::endl;
 		}
+		for (int i = 0, score = currentScore / bNumber; i < bNumber; i++) {
+			currentBackPlayer.at(i).addScore(score);
+			Debugmsg(currentBackPlayer.at(i).index, score, currentBackPlayer.at(i).score);
+		}
+		doUpdataScore();
+		if(!DEBUG)	std::cout << "場上餘剩寶石分數: " << currentScore << std::endl;
 	}
 	/*
 	 * 將要回家的玩家移到已回家
@@ -207,43 +233,68 @@ struct Room
 		currentBackPlayer.clear();
 	}
 	/*
-	 * 結束執行
+	 * 重置/更新回合分數
+	 */
+	void doUpdataScore() {
+		currentScore %= getBackNumber();
+	}
+	/*
+	 * Round 結束執行
 	 * @param type 結束類型
 	 */
 	void doEndRound(EndType type) {
 		switch (type)
 		{
 		case E1:		//所有人都回家
+			doRemoveArtifact();										//找出神器卡並從抽出的牌堆中移除
+			doPutBack();													//將抽出的牌放回牌堆
+			drawedCards.clear();										//安全處理
+			initMonsterCount();											//清除怪物暫存
 			break;
-		case E2:		//牌堆沒卡牌了
+		case E2:		//牌堆沒卡牌了 強制結束這回合
+			doRemoveArtifact();										//找出神器卡並從抽出的牌堆中移除
+			doPutBack();													//將抽出的牌放回牌堆
+			drawedCards.clear();										//安全處理
+			initMonsterCount();											//清除怪物暫存
 			break;
 		case E3:		//出現相同的怪物2張
-			drawedCards.erase(drawedCards.end() - 1);										//移除最後重複的怪物卡
-			for (auto it = drawedCards.begin(); it != drawedCards.end(); it++) {	//找出神器卡並從抽出的牌堆中移除
-				if ((*it).cardType == Artifact) {
-					drawedCards.erase(it);
-					break;
-				}
-			}
-
-			cards.insert(cards.end(), drawedCards.begin(), drawedCards.end());	//將抽出的牌放回牌堆
-			drawedCards.clear();
+			drawedCards.erase(drawedCards.end() - 1);		//移除最後重複的怪物卡
+			doRemoveArtifact();										//找出神器卡並從抽出的牌堆中移除
+			doPutBack();													//將抽出的牌放回牌堆
+			drawedCards.clear();										//安全處理
+			initMonsterCount();											//清除怪物暫存
 			break;
 		default:
-			//throw "Error: unknow EndType: " + type;
 			break;
 		}
+	}
+	/*
+	 * 移除已抽出的牌堆中的神器卡	
+	 */
+	void doRemoveArtifact() {
+		for (auto it = drawedCards.begin(); it != drawedCards.end(); it++) {
+			if ((*it).cardType == Artifact) {
+				drawedCards.erase(it);
+				return;
+			}
+		}
+	}
+	/*
+	 將抽出的牌放回牌堆
+	 */
+	void doPutBack() {
+		cards.insert(cards.end(), drawedCards.begin(), drawedCards.end());
 	}
 	/*
 	 * 判斷本回合是否結束
 	 * @return 回傳結束代碼, 其餘回傳 -1
 	 */
 	int isRoundEnd() {
-		if (getAdventureNumber() == 0) {
+		if (getAdventureNumber() == 0) {// 沒人要冒險了
 			doEndRound(E1);
 			return E1;
 		}
-		else if (getCardsnumber() == 0) {
+		else if (getCardsnumber() == 0) {// 牌堆沒有牌了
 			doEndRound(E2);
 			return E2;
 		}
@@ -259,12 +310,15 @@ struct Room
 	 */
 	int isMonsterRepeat() {
 		if (currentMonsters[MonsterType::M1] >= 2) {
+			if (DEBUG) std::cout << "怪物卡出現了兩次!!   種類: " << M1 << std::endl;
 			return M1;
 		}
 		if (currentMonsters[MonsterType::M2] >= 2) {
+			if (DEBUG) std::cout << "怪物卡出現了兩次!!   種類: " << M2 << std::endl;
 			return M2;
 		}
 		if (currentMonsters[MonsterType::M3] >= 2) {
+			if (DEBUG) std::cout << "怪物卡出現了兩次!!   種類: " << M3 << std::endl;
 			return M3;
 		}
 		return -1;
@@ -273,7 +327,7 @@ struct Room
 	 * 回合數已滿返回 true, 其餘 false
 	 */
 	bool isGameEnd() {
-		return currentRound == maxRound;
+		return currentRound == DEFAULT_ROUND;
 	}
 	/*
 	 * 返回當前冒險人數
@@ -296,8 +350,8 @@ struct Room
 	/*
 	 * 返回當前牌堆數量
 	 */
-	size_t getCardsnumber() const {
-		return cards.size();
+	int getCardsnumber() const {
+		return (int)cards.size();
 	}
 	/*
 	 * 抽牌
@@ -314,6 +368,7 @@ struct Room
 			currentScore += dc.score;								//寶石數增加
 			break;
 		case Artifact:
+			//currentScore += dc.score;								//寶石數增加
 			break;
 		case Monster:
 			currentMonsters[(MonsterType)dc.score]++;		//怪物種類數增加
@@ -327,10 +382,10 @@ struct Room
 	/*
 	 * 洗牌
 	 */
-	void shuffle()
+	void shuffle(std::vector<Card>::iterator begin, std::vector<Card>::iterator end)
 	{
 		srand((unsigned int)time(0));
-		std::random_shuffle(cards.begin(), cards.end()); //打亂元素 //myrandom
+		std::random_shuffle(begin, end); //打亂元素
 	}
 };
 
